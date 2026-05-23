@@ -1,0 +1,27 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "leash/qwen3-32b",
+  "provider": {
+    "leash": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Leash (Qwen3-32B + axis monitor)",
+      "options": {
+        "baseURL": "http://127.0.0.1:8787/v1",
+        "apiKey": "leash-local",
+        "headers": {
+          "X-Leash-Clamp": "{env:LEASH_CLAMP}",
+          "X-Leash-Thinking": "{env:LEASH_THINKING}"
+        }
+      },
+      "models": {
+        "qwen3-32b": {
+          "name": "Qwen3-32B (Leash)",
+          "limit": {
+            "context": 32768,
+            "output": 8192
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+# Local dev / laptop. Modal image is defined separately in leash.py.
+#
+# Install:
+#   conda create -n leash python=3.11 -y && conda activate leash
+#   pip install -r requirements.txt
+#   pip install --no-deps git+https://github.com/safety-research/assistant-axis.git
+#
+# Note: assistant-axis lists vllm + a bunch of jupyter/openai/etc as deps
+# in its pyproject.toml. We install --no-deps and bring our own minimum set
+# below. assistant_axis only needs sklearn + plotly at import time (for pca.py),
+# the rest are for the response-generation / judge / pipeline modules we don't use.
+
+torch
+transformers
+accelerate
+huggingface_hub
+numpy
+safetensors
+
+# Required at import time by assistant_axis (pca.py)
+scikit-learn
+plotly
+
+# Modal CLI + probe client
+modal
+requests
+
+# OpenAI shim for OpenCode harness
+fastapi
+uvicorn[standard]

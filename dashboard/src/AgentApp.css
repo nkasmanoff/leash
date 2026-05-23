@@ -1,0 +1,264 @@
+.agent-app {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.agent-config {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+  font-size: 0.85rem;
+}
+
+.agent-config label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.session-tag {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-left: auto;
+}
+
+.activation-bar {
+  flex-shrink: 0;
+  padding: 0.5rem 1rem 0.65rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+
+.activation-bar-head {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.activation-label {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 0.8rem;
+}
+
+.activation-stats {
+  display: flex;
+  gap: 1rem;
+  margin-left: auto;
+  font-family: var(--mono);
+}
+
+.activation-stats strong {
+  color: var(--text);
+}
+
+.activation-strip-wrap {
+  width: 100%;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.activation-strip {
+  display: block;
+  width: 100%;
+  cursor: crosshair;
+}
+
+.activation-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.legend-turn-mark {
+  color: var(--green);
+}
+
+.legend-gradient {
+  display: inline-block;
+  width: 64px;
+  height: 8px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #ff5a5f, #f5c518, #3dd68c);
+}
+
+.agent-chat {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.agent-messages {
+  flex: 1;
+  overflow: auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.agent-empty {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.bubble {
+  max-width: 95%;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.bubble-user {
+  align-self: flex-end;
+  background: #632ca633;
+  border: 1px solid #7744cc44;
+}
+
+.bubble-assistant {
+  align-self: flex-start;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  white-space: normal;
+}
+
+.tok-stream {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.tok {
+  border-radius: 2px;
+  transition: outline 0.08s ease;
+}
+
+.tok-hl {
+  outline: 1px solid #3dd68c;
+  outline-offset: 1px;
+}
+
+.tok-think {
+  font-style: italic;
+  border-left: 2px solid #7744cc55;
+  padding-left: 1px;
+  margin-left: 1px;
+}
+
+.tok-think-empty {
+  color: var(--muted);
+  font-style: normal;
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+.tok-empty {
+  color: var(--muted);
+}
+
+.bubble-assistant.streaming {
+  border-color: var(--accent2);
+  box-shadow: 0 0 0 1px #7744cc33;
+}
+
+.bubble-tool {
+  align-self: flex-start;
+  background: #0b0d12;
+  border: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  max-width: 100%;
+}
+
+.tool-head {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+}
+
+.tool-head .ok {
+  color: var(--green);
+}
+
+.tool-head .fail {
+  color: var(--red);
+}
+
+.tool-cmd,
+.tool-out {
+  margin: 0.25rem 0 0;
+  white-space: pre-wrap;
+}
+
+.tool-out {
+  color: var(--muted);
+  max-height: 160px;
+  overflow: auto;
+}
+
+.tool-expand {
+  margin-top: 0.35rem;
+}
+
+.agent-input-row {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.agent-input-row textarea {
+  flex: 1;
+  resize: vertical;
+  min-height: 2.5rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 0.5rem 0.65rem;
+  font-family: inherit;
+}
+
+.live-proj {
+  font-family: var(--mono);
+}
+
+.live-proj strong {
+  color: var(--accent2);
+}
+
+.agent-status {
+  flex-shrink: 0;
+  padding: 0.45rem 1rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.78rem;
+  color: var(--muted);
+  background: var(--surface2);
+}
+
+.agent-status.error {
+  color: var(--red);
+}
