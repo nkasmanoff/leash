@@ -68,7 +68,7 @@ hf_cache = modal.Volume.from_name("hf-cache", create_if_missing=True)
     volumes={"/cache": hf_cache},
     timeout=3600,
     scaledown_window=600,
-    min_containers=4,
+    min_containers=1,
     secrets=[modal.Secret.from_name("huggingface-secret")],
 )
 class Leash:
@@ -95,9 +95,7 @@ class Leash:
         )
 
         print(f"[leash] loading tokenizer {MODEL_NAME}")
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            MODEL_NAME, cache_dir="/cache"
-        )
+        self.tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, cache_dir="/cache")
 
         print(f"[leash] loading model {MODEL_NAME}")
         self.model = AutoModelForCausalLM.from_pretrained(
@@ -201,9 +199,9 @@ class Leash:
             add_generation_prompt=True,
             enable_thinking=enable_thinking,
         )
-        input_ids = self.tokenizer(
-            prompt_text, return_tensors="pt"
-        ).input_ids.to("cuda")
+        input_ids = self.tokenizer(prompt_text, return_tensors="pt").input_ids.to(
+            "cuda"
+        )
 
         if seed is not None:
             torch.manual_seed(int(seed))
@@ -261,6 +259,101 @@ class Leash:
 
         headers = {**CORS_HEADERS, "X-Accel-Buffering": "no"}
         return StreamingResponse(sse(), media_type="text/event-stream", headers=headers)
+
+    @modal.fastapi_endpoint(method="POST", docs=True)
+    def extract(self, payload: dict):
+        """Capture residual-stream activations at chosen token positions.
+
+        Used post-hoc on labeled sessions to project hack/honest trajectories
+        onto the role/trait vector library. Single forward pass, no generation.
+
+        Body:
+          messages: list[{role, content}]            # conversation prefix
+          enable_thinking: bool                      # Qwen3 thinking mode (default False)
+          generated_token_ids: list[int] | null      # tokens to append after the prompt
+          layer: int | null                          # model.layers index; default = target_layer
+          positions: list[int] | null                # offsets into generated_token_ids;
+                                                       null/omitted ⇒ all positions
+
+        Response:
+          {
+            "n_prompt_tokens": int,
+            "n_generated_tokens": int,
+            "layer": int,
+            "positions": list[int],
+            "tokens": list[str],                    # decoded token at each requested position
+            "hidden_states": list[list[float]]      # [n_positions, hidden_dim], float32
+          }
+        """
+        from fastapi.responses import JSONResponse
+        torch = self.torch
+
+        messages = payload.get("messages") or []
+        enable_thinking = bool(payload.get("enable_thinking", False))
+        gen_ids = payload.get("generated_token_ids") or []
+        layer_idx = payload.get("layer")
+        if layer_idx is None:
+            layer_idx = self.target_layer
+        layer_idx = int(layer_idx)
+        positions = payload.get("positions")
+
+        prompt_text = self.tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+            enable_thinking=enable_thinking,
+        )
+        prompt_ids = self.tokenizer(
+            prompt_text, return_tensors="pt"
+        ).input_ids[0].to("cuda")
+        n_prompt = int(prompt_ids.shape[0])
+
+        if gen_ids:
+            gen_tensor = torch.tensor(
+                gen_ids, dtype=prompt_ids.dtype, device="cuda"
+            )
+            full_ids = torch.cat([prompt_ids, gen_tensor], dim=0).unsqueeze(0)
+        else:
+            full_ids = prompt_ids.unsqueeze(0)
+
+        if positions is None:
+            positions = list(range(len(gen_ids)))
+        abs_positions = [n_prompt + int(p) for p in positions]
+        if not abs_positions:
+            abs_positions = [int(full_ids.shape[1]) - 1]
+            positions = [int(full_ids.shape[1]) - 1 - n_prompt]
+
+        captured: dict = {}
+
+        def hook(module, inputs, outputs):
+            h = outputs[0] if isinstance(outputs, tuple) else outputs
+            captured["h"] = h[0].detach().to(torch.float32).cpu()
+
+        target_block = self.model.model.layers[layer_idx]
+        handle = target_block.register_forward_hook(hook)
+        try:
+            with torch.no_grad():
+                self.model(full_ids, use_cache=False)
+        finally:
+            handle.remove()
+
+        h = captured["h"]
+        h_sel = h[abs_positions]
+
+        full_ids_list = full_ids[0].cpu().tolist()
+        decoded = [
+            self.tokenizer.decode([full_ids_list[p]]) for p in abs_positions
+        ]
+
+        body = {
+            "n_prompt_tokens": n_prompt,
+            "n_generated_tokens": len(gen_ids),
+            "layer": layer_idx,
+            "positions": positions,
+            "tokens": decoded,
+            "hidden_states": h_sel.tolist(),
+        }
+        return JSONResponse(body, headers=CORS_HEADERS)
 
     @modal.fastapi_endpoint(method="GET")
     def health(self):

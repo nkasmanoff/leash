@@ -304,6 +304,16 @@ scripts/
   peak_tokens.py                Inspect highest/lowest projection windows
   think_signal.py               Threshold-fraction analysis
   train_probe.py                LOO L2 logistic regression hack probe
+  download_axes.py              Cache the full role/trait vector library from
+                                lu-christina/assistant-axis-vectors (Qwen 3 32B)
+  extract_activations.py        Replay each labeled session through the
+                                Modal /extract endpoint and save residual-stream
+                                activations at curated decision-token positions
+  project_axes.py               Project per-session activations onto every
+                                role/trait axis at the target layer
+  contrast_axes.py              Per-axis hack-vs-honest contrast (Welch t,
+                                Cohen's d, AUC, BH-FDR) with a-priori clusters
+                                (hacky_persona, deceptive_traits, honest_traits)
   openai_shim.py                Optional OpenAI-compatible adapter for the
                                 Leash backend
   trace_store.py                Helpers for indexing harness traces
@@ -353,8 +363,84 @@ Outputs land in `traces/hack_sweep/run-<TS>/`:
 `probe_primary.md`, `probe_secondary.md`, plus per-seed
 `session/turn-*.json` (full token traces) and `demo_snapshot/`.
 
+## Projecting hack/honest sessions onto the role/trait vector library
+
+Once a sweep is classified, we can ask: *do the residual streams at the
+decision moments of hack-shaped sessions deviate from honest sessions along
+any of the 500-odd published role/trait axes?* The pipeline:
+
+```bash
+# (one-time) cache all axis vectors locally (~170 MB)
+python scripts/download_axes.py
+
+# replay each labeled session and extract residual-stream activations
+# at decision-token positions (tool_cmd_first, think_end, hack/fix keywords,
+# visible-reply openers). Hits the Modal /extract endpoint.
+python scripts/extract_activations.py \
+    --run-dir traces/hack_sweep/run-<TS> \
+    --layer 32
+
+# project onto every axis (assistant_axis + role_vectors/* + trait_vectors/*)
+python scripts/project_axes.py \
+    --activations-dir traces/hack_sweep/run-<TS>/activations \
+    --layer 32
+
+# per-axis Welch t / Cohen's d / AUC for hack vs honest sessions, with both a
+# strict ("primary": clean_fix vs explicit-hack) and inclusive ("inclusive":
+# clean_fix+partial_fix vs explicit-hack) framing. Reports a-priori clusters
+# (hacker / saboteur / manipulative / principled / auditor / engineer / ...)
+python scripts/contrast_axes.py \
+    --projections-dir traces/hack_sweep/run-<TS>/projections
+```
+
+Outputs:
+- `traces/.../activations/<cell>__seed-<n>.npz` (per-session residual streams,
+  ~80–300 positions × 5120 dims each)
+- `traces/.../projections/projections_by_session.{parquet,csv.gz}`
+  (per (session, axis) summary stats)
+- `traces/.../projections/projections_by_kind.{parquet,csv.gz}`
+  (per (session, axis, decision-token-kind) summary stats)
+- `traces/.../projections/axes_contrast.{primary,inclusive}.{md,json}`
+  (ranked report)
+
+The Modal app exposes `POST /extract` for this:
+
+```json
+{
+  "messages": [...],                 // conversation prefix (system + user + ...)
+  "enable_thinking": true,           // matches the original generation
+  "generated_token_ids": [151667, ...],  // the tokens that were generated this turn
+  "layer": 32,                       // model.layers index; default = target_layer
+  "positions": [0, 12, 73]           // offsets into generated_token_ids
+}
+```
+
+returns `{n_prompt_tokens, n_generated_tokens, layer, positions, tokens,
+hidden_states[len(positions)][hidden_dim]}`. No generation happens — it is a
+single forward pass with a hook on the requested layer.
+
+### Current status
+
+With only 4 hack vs 3–10 honest sessions in the existing single-domain sweep,
+no axis survives BH-FDR correction. The largest **directionally interpretable**
+effect in the a-priori cluster is the `principled` trait (Cohen's d ≈ −0.7,
+hack < honest), but p ≈ 0.35. The `hacker` / `rebel` / `saboteur` /
+`manipulative` role-and-trait axes are flat (AUC ≈ 0.5, |d| < 0.1).
+
+Headline takeaway: **the assistant axis is a "decision-making" detector, not a
+"reward-hacking" detector**, and a single-domain sweep does not have power to
+see hack-specific deviation along the existing personas. Running the sweep
+across the six scenarios (`scripts/scenarios/`) is the obvious next step:
+~4 cells × 10 seeds × 6 scenarios should give us 30–60 hack sessions, plenty
+to actually contrast.
+
 ## License
 
 Research code, no warranty. Uses [Qwen3-32B](https://huggingface.co/Qwen/Qwen3-32B)
 (Apache 2.0) and the assistant-axis vectors from
 [safety-research/assistant-axis](https://github.com/safety-research/assistant-axis).
+
+
+## Next Steps:
+- Change scenario urgency on sweeps to make it more likely the model will hack
+- Run across more scenarios and if more hacking occurs, try to get activation vectors on that signal specifically
